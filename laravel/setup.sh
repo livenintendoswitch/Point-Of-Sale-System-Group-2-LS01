@@ -11,6 +11,6 @@ sed -i 's/^#* *DB_DATABASE=.*/DB_DATABASE=POSdatabase/' .env
 sed -i 's/^#* *DB_USERNAME=.*/DB_USERNAME=admin/' .env
 sed -i 's/^#* *DB_PASSWORD=.*/DB_PASSWORD=123456789/' .env
 
-php artisan artisan migrate
+php artisan migrate
 
 php artisan serve --host=0.0.0.0 --port=8000
