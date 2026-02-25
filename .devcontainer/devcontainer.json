@@ -4,7 +4,7 @@
     "service": "laravel",
     "workspaceFolder": "/app",
     "forwardPorts": [8000],
-    "postCreateCommand": "php artisan serve --host=0.0.0.0",
+    "postCreateCommand": "./setup.sh",
     "customizations": {
       "vscode": {
         "extensions": [
