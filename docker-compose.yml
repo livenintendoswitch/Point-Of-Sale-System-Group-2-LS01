@@ -1,6 +1,8 @@
 services:
   laravel:
-    image: composer:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     working_dir: /app
     ports:
       - "8000:8000"
