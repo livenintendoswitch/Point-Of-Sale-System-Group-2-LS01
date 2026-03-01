@@ -4,7 +4,7 @@
     "service": "laravel",
     "workspaceFolder": "/app",
     "forwardPorts": [8000],
-    "postCreateCommand": "./setup.sh",
+    "postCreateCommand": "chmod +x script.sh && ./setup.sh",
     "customizations": {
       "vscode": {
         "extensions": [
