@@ -3,17 +3,23 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use App\Models\ModelMember;
+use App\Models\MemberModel;
 
 class MemberSeeder extends Seeder
 {
-    public function run(): void
+    public function run()
     {
-        ModelMember::create([
+        MemberModel::create([
             'kode_member' => 'MBR001',
-            'nama_member' => 'Budi',
-            'no_hp' => '08123456789',
-            'poin' => 100
+            'nama' => 'Budi Santoso',
+            'telepon' => '08123456789',
+            'poin' => 100,
+        ]);
+        MemberModel::create([
+            'kode_member' => 'MBR002',
+            'nama' => 'Siti Aminah',
+            'telepon' => '08129876543',
+            'poin' => 50,
         ]);
     }
 }

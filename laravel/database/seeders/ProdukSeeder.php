@@ -3,37 +3,20 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use App\Models\ModelProduk;
-use App\Models\ModelHargaProduk;
+use App\Models\ProdukModel;
 
 class ProdukSeeder extends Seeder
 {
-    public function run(): void
+    public function run()
     {
-        $produk = ModelProduk::create([
-            'barcode' => '89900001',
-            'nama_produk' => 'Indomie Goreng',
-            'isi_per_slop' => 10,
-            'isi_per_box' => 40,
-            'stok_pcs' => 200
-        ]);
-
-        ModelHargaProduk::create([
-            'produk_id' => $produk->id,
-            'jenis' => 'satuan',
-            'harga' => 3000
-        ]);
-
-        ModelHargaProduk::create([
-            'produk_id' => $produk->id,
-            'jenis' => 'slop',
-            'harga' => 28000
-        ]);
-
-        ModelHargaProduk::create([
-            'produk_id' => $produk->id,
-            'jenis' => 'box',
-            'harga' => 110000
-        ]);
+        $produks = [
+            ['barcode' => '8991001101111', 'nama' => 'Indomie Goreng', 'harga' => 3500, 'stok' => 100],
+            ['barcode' => '8991002102222', 'nama' => 'Aqua 600ml', 'harga' => 3000, 'stok' => 50],
+            ['barcode' => '8991003103333', 'nama' => 'Pocari Sweat', 'harga' => 8000, 'stok' => 30],
+            ['barcode' => '8991004104444', 'nama' => 'Roti Tawar', 'harga' => 12000, 'stok' => 20],
+        ];
+        foreach ($produks as $p) {
+            ProdukModel::create($p);
+        }
     }
 }
