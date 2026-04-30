@@ -46,4 +46,35 @@ class ControllerUser extends Controller
         $user->delete();
         return redirect()->route('user.index')->with('success', 'Kasir dihapus');
     }
+
+    public function edit($id)
+    {
+        $user = UserModel::findOrFail($id);
+        return view('admin.user.edit', compact('user'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $user = UserModel::findOrFail($id);
+        
+        $request->validate([
+            'name' => 'required',
+            'email' => 'required|email|unique:users,email,' . $id,
+            'password' => 'nullable|min:4', // Password opsional saat edit
+        ]);
+
+        $data = [
+            'name' => $request->name,
+            'email' => $request->email,
+        ];
+
+        // Hanya update password jika diisi
+        if ($request->filled('password')) {
+            $data['password'] = Hash::make($request->password);
+        }
+
+        $user->update($data);
+
+        return redirect()->route('user.index')->with('success', 'Akun kasir berhasil diperbarui');
+    }
 }

@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->string('barcode')->unique();
             $table->string('nama');
-            $table->integer('harga');
+            // $table->integer('harga');
             $table->integer('stok');
             $table->timestamps();
         });

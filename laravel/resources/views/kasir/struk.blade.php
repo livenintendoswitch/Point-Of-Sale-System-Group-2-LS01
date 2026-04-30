@@ -28,11 +28,21 @@
     </div>
     <div class="line"></div>
     <table width="100%">
+        <!-- Contoh di kasir/struk.blade.php -->
         @foreach($penjualan->details as $detail)
         <tr>
-            <td>{{ $detail->produk->nama }} x{{ $detail->jumlah }}</td>
-            <td align="right">{{ number_format($detail->subtotal) }}</td>
+            <td>{{ $detail->produk->nama }} ({{ $detail->kemasan->satuan }})</td>
+            <td>{{ $detail->jumlah }} x {{ number_format($detail->harga_satuan) }}</td>
+            <td align="right">Rp {{ number_format($detail->subtotal) }}</td>
         </tr>
+        <!-- Tambahkan info konversi di bawah nama produk (opsional) -->
+        @if($detail->kemasan->nama != 'Kecil')
+        <tr>
+            <td colspan="3" style="font-size: 10px; color: gray;">
+                *Item ini setara {{ $detail->jumlah * $detail->konversi_saat_itu }} Pack
+            </td>
+        </tr>
+        @endif
         @endforeach
     </table>
     <div class="line"></div>

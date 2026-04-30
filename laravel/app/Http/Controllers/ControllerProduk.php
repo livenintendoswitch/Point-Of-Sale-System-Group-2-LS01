@@ -24,35 +24,35 @@ class ControllerProduk extends Controller
     // Simpan produk beserta kemasan
     public function store(Request $request)
     {
+        // Validasi dasar
         $request->validate([
             'barcode' => 'required|unique:produks,barcode',
             'nama' => 'required',
-            'stok' => 'required|integer|min:0',
-            'kemasan_nama' => 'required|array|min:1',
-            'kemasan_nama.*' => 'required|string',
-            'kemasan_konversi' => 'required|array',
-            'kemasan_konversi.*' => 'required|integer|min:1',
-            'kemasan_harga' => 'required|array',
-            'kemasan_harga.*' => 'required|integer|min:0',
+            'stok_total' => 'required|integer',
         ]);
 
+        // 1. Simpan Produk Utama
         $produk = ProdukModel::create([
             'barcode' => $request->barcode,
             'nama' => $request->nama,
-            'stok' => $request->stok,
-            'harga' => 0, // tidak dipakai, bisa diisi 0
+            'stok' => $request->stok_total,
+            'harga' => $request->harga_jual['kecil'], // Default harga jual terkecil
         ]);
 
-        foreach ($request->kemasan_nama as $key => $nama) {
+        // 2. Simpan 3 Level Kemasan
+        $levels = ['besar', 'sedang', 'kecil'];
+        foreach ($levels as $level) {
             ProdukKemasanModel::create([
                 'produk_id' => $produk->id,
-                'nama' => $nama,
-                'konversi' => $request->kemasan_konversi[$key],
-                'harga_jual' => $request->kemasan_harga[$key],
+                'nama' => ucfirst($level),
+                'satuan' => $request->satuan[$level],
+                'konversi' => ($level == 'kecil') ? 1 : $request->input("konversi_$level"),
+                'harga_beli' => $request->harga_beli[$level],
+                'harga_jual' => $request->harga_jual[$level],
             ]);
         }
 
-        return redirect()->route('produk.index')->with('success', 'Produk dan kemasan berhasil ditambahkan');
+        return redirect()->route('produk.index')->with('success', 'Produk berhasil disimpan');
     }
 
     // Form edit produk

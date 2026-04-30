@@ -15,38 +15,44 @@ class ControllerPenjualan extends Controller
 {
     public function scan(Request $request)
     {
-        $request->validate([
-            'barcode' => 'required',
-            'kemasan_id' => 'required|exists:produk_kemasan,id',
-        ]);
+        $kemasan = ProdukKemasanModel::where('id', $request->kemasan_id)->first();
+        $produk = ProdukModel::find($kemasan->produk_id);
+        
+        // Ambil SEMUA kemasan untuk produk ini agar bisa menghitung rantai konversi
+        $semuaKemasan = ProdukKemasanModel::where('produk_id', $produk->id)->get();
+        $konversiBal = $semuaKemasan->where('nama', 'Besar')->first()->konversi ?? 1;
+        $konversiSlop = $semuaKemasan->where('nama', 'Sedang')->first()->konversi ?? 1;
 
-        $kemasan = ProdukKemasanModel::with('produk')->find($request->kemasan_id);
-        if (!$kemasan) {
-            return back()->with('error', 'Kemasan tidak valid');
+        // HITUNG TOTAL PCS PER SATUAN YANG DIPILIH
+        $pcsPerUnit = 1;
+        if ($kemasan->nama == 'Besar') {
+            $pcsPerUnit = $konversiBal * $konversiSlop; // 20 * 10 = 200
+        } elseif ($kemasan->nama == 'Sedang') {
+            $pcsPerUnit = $konversiSlop; // 10
         }
 
-        $produk = $kemasan->produk;
-        // Cek stok cukup tidak? (optional, bisa dicek nanti saat bayar)
-        // if ($produk->stok < $kemasan->konversi) return back()->with('error', 'Stok tidak cukup');
+        $totalPcsDibutuhkan = $request->qty * $pcsPerUnit;
 
+        // Cek Stok Gudang
+        if ($produk->stok < $totalPcsDibutuhkan) {
+            return back()->with('error', "Stok kurang! Butuh $totalPcsDibutuhkan Pack, cuma ada $produk->stok Pack.");
+        }
+
+        // Simpan ke Cart
         $cart = session()->get('cart', []);
         $key = $produk->id . '_' . $kemasan->id;
-        if (isset($cart[$key])) {
-            $cart[$key]['qty']++;
-            $cart[$key]['subtotal'] = $cart[$key]['qty'] * $kemasan->harga_jual;
-        } else {
-            $cart[$key] = [
-                'produk_id' => $produk->id,
-                'kemasan_id' => $kemasan->id,
-                'nama' => $produk->nama . ' (' . $kemasan->nama . ')',
-                'harga_satuan' => $kemasan->harga_jual,
-                'qty' => 1,
-                'subtotal' => $kemasan->harga_jual,
-                'konversi_pcs' => $kemasan->konversi,
-            ];
-        }
+        $cart[$key] = [
+            'produk_id'    => $produk->id,
+            'kemasan_id'   => $kemasan->id,
+            'nama'         => $produk->nama . " ({$kemasan->satuan})",
+            'harga_satuan' => $kemasan->harga_jual,
+            'qty'          => $request->qty,
+            'subtotal'     => $kemasan->harga_jual * $request->qty,
+            'konversi_total_pcs' => $pcsPerUnit, // Simpan hasil akhir (200, 10, atau 1)
+        ];
+
         session()->put('cart', $cart);
-        return redirect()->route('transaksi')->with('success', 'Produk ditambahkan');
+        return redirect()->route('transaksi');
     }
 
     public function prosesBayar(Request $request)
@@ -56,42 +62,45 @@ class ControllerPenjualan extends Controller
 
         $total = array_sum(array_column($cart, 'subtotal'));
         $dibayar = $request->dibayar;
-        if ($dibayar < $total) return back()->with('error', 'Uang kurang');
+        if ($dibayar < $total) return back()->with('error', 'Uang pembayaran kurang');
 
         DB::beginTransaction();
         try {
-            $noInvoice = 'INV/' . date('Ymd') . '/' . rand(1000, 9999);
             $penjualan = PenjualanModel::create([
-                'no_invoice' => $noInvoice,
-                'user_id' => Auth::id(),
-                'member_id' => $request->member_id,
+                'no_invoice'  => 'INV/' . date('Ymd') . '/' . rand(1000, 9999),
+                'user_id'     => Auth::id(),
+                'member_id'   => $request->member_id,
                 'total_harga' => $total,
-                'dibayar' => $dibayar,
-                'kembalian' => $dibayar - $total,
+                'dibayar'     => $dibayar,
+                'kembalian'   => $dibayar - $total,
             ]);
 
             foreach ($cart as $item) {
+                $kemasanData = ProdukKemasanModel::findOrFail($item['kemasan_id']);
+
                 DetailPenjualanModel::create([
-                    'penjualan_id' => $penjualan->id,
-                    'produk_id' => $item['produk_id'],
-                    'jumlah' => $item['qty'],
-                    'harga_satuan' => $item['harga_satuan'],
-                    'subtotal' => $item['subtotal'],
+                    'penjualan_id'      => $penjualan->id,
+                    'produk_id'         => $item['produk_id'],
+                    'produk_kemasan_id' => $item['kemasan_id'],
+                    'jumlah'            => $item['qty'],
+                    'harga_satuan'      => $item['harga_satuan'],
+                    'harga_beli'        => $kemasanData->harga_beli,
+                    'subtotal'          => $item['subtotal'],
+                    // TAMBAHKAN BARIS DI BAWAH INI
+                    'konversi_saat_itu' => $item['konversi_total_pcs'], 
                 ]);
 
+                // Potong stok produk
                 $produk = ProdukModel::find($item['produk_id']);
-                $totalPcs = $item['qty'] * $item['konversi_pcs'];
-                $produk->stok -= $totalPcs;
-                $produk->save();
+                $produk->decrement('stok', ($item['qty'] * $item['konversi_total_pcs']));
             }
 
-            // tambah poin member jika ada...
-            session()->forget('cart');
             DB::commit();
+            session()->forget('cart');
             return redirect()->route('struk', $penjualan->id);
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Gagal memproses: ' . $e->getMessage());
+            return back()->with('error', 'Gagal: ' . $e->getMessage());
         }
     }
 
@@ -110,14 +119,27 @@ class ControllerPenjualan extends Controller
         $id = $request->id;
         $qty = $request->qty;
         $cart = session()->get('cart');
-        if ($qty <= 0) {
-            unset($cart[$id]);
-        } else {
-            $cart[$id]['qty'] = $qty;
-            $cart[$id]['subtotal'] = $cart[$id]['harga'] * $qty;
+
+        if (isset($cart[$id])) {
+            if ($qty <= 0) {
+                unset($cart[$id]);
+            } else {
+                // VALIDASI STOK ULANG
+                $produk = ProdukModel::find($cart[$id]['produk_id']);
+                $totalPcsDibutuhkan = $qty * $cart[$id]['konversi_total_pcs']; 
+
+                if ($produk->stok < $totalPcsDibutuhkan) {
+                    return response()->json(['success' => false, 'message' => 'Stok tidak mencukupi!']);
+                }
+
+                $cart[$id]['qty'] = $qty;
+                // Gunakan harga_satuan (sesuai field di fungsi scan)
+                $cart[$id]['subtotal'] = $cart[$id]['harga_satuan'] * $qty;
+            }
+            session()->put('cart', $cart);
+            return response()->json(['success' => true]);
         }
-        session()->put('cart', $cart);
-        return response()->json(['success' => true]);
+        return response()->json(['success' => false, 'message' => 'Item tidak ditemukan']);
     }
 
     // Hapus item dari keranjang
