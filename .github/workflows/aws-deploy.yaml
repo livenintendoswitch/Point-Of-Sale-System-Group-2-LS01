@@ -24,7 +24,7 @@ jobs:
         extensions: pdo_mysql, zip, sqlite3
 
     - name: Install Composer Dependencies
-      run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+      run: composer install --no-interaction --prefer-dist
 
     - name: Prepare Testing Environment
       run: |
