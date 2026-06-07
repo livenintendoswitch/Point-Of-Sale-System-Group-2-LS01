@@ -28,11 +28,13 @@ jobs:
       run: composer install --no-interaction --prefer-dist
 
     - name: Prepare Testing Environment
+      working-directory: ./laravel
       run: |
           cp .env.example .env
           php artisan key:generate
 
     - name: Execute Tests 
+      working-directory: ./laravel
       run: php artisan test
 
     - name: Configure AWS credentials via OIDC
