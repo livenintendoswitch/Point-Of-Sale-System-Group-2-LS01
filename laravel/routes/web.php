@@ -9,6 +9,11 @@ use App\Http\Controllers\ControllerPenjualan;
 use App\Http\Controllers\ControllerLaporan;
 use App\Http\Controllers\ControllerUser;
 
+//auto route to login
+Route::get('/', function(){
+    return redirect('/login');
+});
+
 // Guest routes (login)
 Route::get('/login', [ControllerAuth::class, 'showLogin'])->name('login');
 Route::post('/login', [ControllerAuth::class, 'login']);
