@@ -24,10 +24,11 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', [ControllerPenjualan::class, 'index'])->name('transaksi');
         Route::post('/scan', [ControllerPenjualan::class, 'scan'])->name('scan');
         Route::post('/update-cart', [ControllerPenjualan::class, 'updateCart'])->name('updateCart');
-        Route::delete('/remove-cart/{id}', [ControllerPenjualan::class, 'removeCart'])->name('removeCart');
+        Route::get('/remove-cart/{id}', [ControllerPenjualan::class, 'removeCart'])->name('removeCart');
+        Route::get('/cari-produk-kasir', [ControllerPenjualan::class, 'cariProdukKasir'])->name('cariProdukKasir');
         Route::get('/cari-member', [ControllerPenjualan::class, 'cariMember'])->name('cariMember');
         Route::post('/bayar', [ControllerPenjualan::class, 'prosesBayar'])->name('prosesBayar');
-        Route::get('/struk/{id}', [ControllerPenjualan::class, 'struk'])->name('struk');
+        Route::get('/transaksi/cetak-struk/{id}', [ControllerPenjualan::class, 'cetakStruk'])->name('cetak_struk');
     });
 
     // Rute yang hanya untuk ADMIN (middleware role:admin)
@@ -37,5 +38,6 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('user', ControllerUser::class)->names('user');
         Route::get('/laporan', [ControllerLaporan::class, 'index'])->name('laporan');
         Route::get('/laporan/stok', [ControllerLaporan::class, 'stok'])->name('laporan.stok');
+        Route::get('/laporan/bulanan', [ControllerLaporan::class, 'bulanan'])->name('laporan.bulanan');
     });
 });
