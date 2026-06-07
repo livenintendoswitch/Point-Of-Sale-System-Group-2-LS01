@@ -2,7 +2,7 @@ services:
   laravel:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     working_dir: /app
     ports:
       - "8000:8000"
@@ -11,7 +11,6 @@ services:
     environment:
       - APP_ENV=local
       - APP_DEBUG=true
-      - DB_HOST=mysql
     depends_on:
       - mysql
     command: sleep infinity

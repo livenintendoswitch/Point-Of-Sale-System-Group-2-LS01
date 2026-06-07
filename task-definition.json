@@ -1,0 +1,56 @@
+{
+  "family": "system-pos-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::633630779109:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "laravel-pos",
+      "image": "633630779109.dkr.ecr.ap-southeast-3.amazonaws.com/ls01-kelompok-2-pos-system:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 80,
+          "hostPort": 80,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        { "name": "APP_ENV", "value": "production" },
+        { "name": "APP_DEBUG", "value": "false" },
+        { "name": "DB_CONNECTION", "value": "mysql" },
+        { "name": "DB_PORT", "value": "3306" },
+        { "name": "DB_DATABASE", "value": "POSdatabase" }
+      ],
+      "secrets": [
+        {
+          "name": "APP_KEY",
+          "valueFrom": "arn:aws:ssm:ap-southeast-3:633630779109:parameter/pos/app-key"
+        },
+        {
+          "name": "DB_HOST",
+          "valueFrom": "pos-db-prod.cjuk24wskgyj.ap-southeast-3.rds.amazonaws.com"
+        },
+        {
+          "name": "DB_USERNAME",
+          "valueFrom": "arn:aws:ssm:ap-southeast-3:633630779109:parameter/pos/username"
+        },
+        {
+          "name": "DB_PASSWORD",
+          "valueFrom": "arn:aws:ssm:ap-southeast-3:633630779109:parameter/pos/dbPassword"
+        }
+      ],
+       "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/laravel-pos",
+          "awslogs-region": "ap-southeast-3",
+          "awslogs-stream-prefix": "ecs",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ]
+}
