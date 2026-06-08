@@ -24,35 +24,79 @@ class ControllerProduk extends Controller
     // Simpan produk beserta kemasan
     public function store(Request $request)
     {
-        // Validasi dasar
         $request->validate([
             'barcode' => 'required|unique:produks,barcode',
-            'nama' => 'required',
-            'stok_total' => 'required|integer',
+            'nama'    => 'required',
+            'stok'    => 'required|numeric', // Menangkap data dari input hidden
+
+            'konversi_besar'  => 'required|integer|min:1', 
+            'konversi_sedang' => 'required|integer|min:1', 
+            
+            'harga_beli_besar' => 'required|numeric',
+            'harga_jual_besar' => 'required|numeric',
+            'harga_beli_sedang'=> 'required|numeric',
+            'harga_jual_sedang'=> 'required|numeric',
+            'harga_beli_kecil' => 'required|numeric',
+            'harga_jual_kecil' => 'required|numeric',
         ]);
 
-        // 1. Simpan Produk Utama
-        $produk = ProdukModel::create([
-            'barcode' => $request->barcode,
-            'nama' => $request->nama,
-            'stok' => $request->stok_total,
-            'harga' => $request->harga_jual['kecil'], // Default harga jual terkecil
-        ]);
+        $konversiBesar  = $request->konversi_besar;  
+        $konversiSedang = $request->konversi_sedang; 
 
-        // 2. Simpan 3 Level Kemasan
-        $levels = ['besar', 'sedang', 'kecil'];
-        foreach ($levels as $level) {
-            ProdukKemasanModel::create([
-                'produk_id' => $produk->id,
-                'nama' => ucfirst($level),
-                'satuan' => $request->satuan[$level],
-                'konversi' => ($level == 'kecil') ? 1 : $request->input("konversi_$level"),
-                'harga_beli' => $request->harga_beli[$level],
-                'harga_jual' => $request->harga_jual[$level],
-            ]);
+        // Ambil data stok langsung dari input 'stok' (kiriman input hidden HTML)
+        // Jika karena suatu hal bernilai null/0, jalankan hitung manual sebagai backup
+        $stokFinal = $request->stok;
+
+        if ($stokFinal == 0 || $stokFinal == null) {
+            $stokBesar  = $request->input('stok_besar', 0) ?? 0;
+            $stokSedang = $request->input('stok_sedang', 0) ?? 0;
+            $stokKecil  = $request->input('stok_kecil', 0) ?? 0;
+
+            $totalUnitSedang = ($stokBesar * $konversiBesar) + $stokSedang;
+            $stokFinal       = ($totalUnitSedang * $konversiSedang) + $stokKecil;
         }
 
-        return redirect()->route('produk.index')->with('success', 'Produk berhasil disimpan');
+        \DB::beginTransaction();
+        try {
+            $produk = ProdukModel::create([
+                'barcode' => $request->barcode,
+                'nama'    => $request->nama,
+                'stok'    => $stokFinal, // Menggunakan hasil akhir yang valid (Bukan 0 lagi)
+            ]);
+
+            ProdukKemasanModel::create([
+                'produk_id'  => $produk->id,
+                'nama'       => 'Besar',
+                'satuan'     => 'Bal',
+                'konversi'   => $konversiBesar, 
+                'harga_beli' => $request->harga_beli_besar,
+                'harga_jual' => $request->harga_jual_besar,
+            ]);
+
+            ProdukKemasanModel::create([
+                'produk_id'  => $produk->id,
+                'nama'       => 'Sedang',
+                'satuan'     => 'Slop',
+                'konversi'   => $konversiSedang, 
+                'harga_beli' => $request->harga_beli_sedang,
+                'harga_jual' => $request->harga_jual_sedang,
+            ]);
+
+            ProdukKemasanModel::create([
+                'produk_id'  => $produk->id,
+                'nama'       => 'Kecil',
+                'satuan'     => 'Pack',
+                'konversi'   => 1,
+                'harga_beli' => $request->harga_beli_kecil,
+                'harga_jual' => $request->harga_jual_kecil,
+            ]);
+
+            \DB::commit();
+            return redirect()->route('produk.index')->with('success', 'Produk berhasil ditambahkan dengan konversi berantai!');
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return back()->with('error', 'Gagal menyimpan produk: ' . $e->getMessage())->withInput();
+        }
     }
 
     // Form edit produk
@@ -67,36 +111,54 @@ class ControllerProduk extends Controller
     {
         $produk = ProdukModel::findOrFail($id);
 
+        // 1. Validasi Input Form Edit
         $request->validate([
             'barcode' => 'required|unique:produks,barcode,' . $id,
-            'nama' => 'required',
-            'stok' => 'required|integer|min:0',
-            'kemasan_nama' => 'required|array|min:1',
-            'kemasan_nama.*' => 'required|string',
-            'kemasan_konversi' => 'required|array',
-            'kemasan_konversi.*' => 'required|integer|min:1',
-            'kemasan_harga' => 'required|array',
-            'kemasan_harga.*' => 'required|integer|min:0',
+            'nama'    => 'required',
+            'stok'    => 'required|integer|min:0', // Menangkap total stok terupdate dari input hidden
+            
+            // Validasi array kemasan
+            'kemasan_nama'      => 'required|array|min:1',
+            'kemasan_nama.*'    => 'required|string',
+            'kemasan_satuan'    => 'required|array',
+            'kemasan_satuan.*'  => 'required|string',
+            'kemasan_konversi'  => 'required|array',
+            'kemasan_konversi.*'=> 'required|integer|min:1',
+            'kemasan_harga_beli'=> 'required|array',
+            'kemasan_harga_beli.*'=> 'required|numeric|min:0',
+            'kemasan_harga_jual'=> 'required|array',
+            'kemasan_harga_jual.*'=> 'required|numeric|min:0',
         ]);
 
-        $produk->update([
-            'barcode' => $request->barcode,
-            'nama' => $request->nama,
-            'stok' => $request->stok,
-        ]);
-
-        // Hapus kemasan lama, buat ulang
-        $produk->kemasan()->delete();
-        foreach ($request->kemasan_nama as $key => $nama) {
-            ProdukKemasanModel::create([
-                'produk_id' => $produk->id,
-                'nama' => $nama,
-                'konversi' => $request->kemasan_konversi[$key],
-                'harga_jual' => $request->kemasan_harga[$key],
+        \DB::beginTransaction();
+        try {
+            // 2. Update data produk utama (termasuk total stoknya)
+            $produk->update([
+                'barcode' => $request->barcode,
+                'nama'    => $request->nama,
+                'stok'    => $request->stok,
             ]);
-        }
 
-        return redirect()->route('produk.index')->with('success', 'Produk diupdate');
+            // 3. Hapus kemasan lama, lalu tulis ulang yang baru
+            $produk->kemasan()->delete();
+
+            foreach ($request->kemasan_nama as $key => $nama) {
+                ProdukKemasanModel::create([
+                    'produk_id'  => $produk->id,
+                    'nama'       => $nama,                                 // Besar / Sedang / Kecil
+                    'satuan'     => $request->kemasan_satuan[$key],        // Bal / Slop / Pack (INI YANG MEMBUAT ERROR)
+                    'konversi'   => $request->kemasan_konversi[$key],      // 20 / 10 / 1
+                    'harga_beli' => $request->kemasan_harga_beli[$key],    // Harga Beli baru
+                    'harga_jual' => $request->kemasan_harga_jual[$key],    // Harga Jual baru
+                ]);
+            }
+
+            \DB::commit();
+            return redirect()->route('produk.index')->with('success', 'Produk dan kemasan berhasil diperbarui!');
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return back()->with('error', 'Gagal memperbarui produk: ' . $e->getMessage())->withInput();
+        }
     }
 
     // Hapus produk (beserta kemasan karena cascade)
