@@ -23,7 +23,8 @@
         { "name": "DB_HOST","value": "pos-db-prod.cjuk24wskgyj.ap-southeast-3.rds.amazonaws.com"},
         { "name": "DB_CONNECTION", "value": "mysql" },
         { "name": "DB_PORT", "value": "3306" },
-        { "name": "DB_DATABASE", "value": "POSdatabase" }
+        { "name": "DB_DATABASE", "value": "POSdatabase" },
+        { "name": "LOG_CHANNEL", "value": "stderr" }
       ],
       "secrets": [
         {
